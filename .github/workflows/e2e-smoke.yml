@@ -1,10 +1,13 @@
+# E2E Smoke: manual run with topic input. Crawler -> Agent -> Ingest -> Verify.
+# Secrets: GEMINI_API_KEY, API_HOST, API_SECRET_KEY
+
 name: E2E Smoke
 
 on:
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
     inputs:
       topic:
-        description: 'Test topic'
+        description: 'Test topic (e.g. machine learning, cat:cs.AI)'
         required: true
         default: 'machine learning'
         type: string
@@ -12,16 +15,16 @@ on:
 jobs:
   smoke-test:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      
+
       - name: Cache pip dependencies
         uses: actions/cache@v4
         with:
@@ -29,47 +32,60 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
-      
+
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
           pip install pytest requests
-      
+
       - name: Run Crawler
         env:
-          PYTHONPATH: src
+          PYTHONPATH: .
         run: |
           python -m src.cli.crawler --query "${{ github.event.inputs.topic }}" --target 5 --output papers.json
           echo "Crawler output:"
           head -c 1000 papers.json || echo "File not found or empty"
-      
+
       - name: Run Agent
         env:
-          PYTHONPATH: src
+          PYTHONPATH: .
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          python -m src.cli.agent --input papers.json --output report.json
+          python -m src.cli.agent --input papers.json --output report.json --interest "${{ github.event.inputs.topic }}" --model gemini-2.0-flash
           echo "Agent output:"
-          cat report.json
-      
+          head -c 500 report.json
+
       - name: Ingest to API
         env:
           API_HOST: ${{ secrets.API_HOST }}
           API_SECRET_KEY: ${{ secrets.API_SECRET_KEY }}
+          RUNNER_USER_ID: smoke_test
+          RUNNER_THEME: ${{ github.event.inputs.topic }}
         run: |
+          python -c "
+          import json, os
+          with open('report.json') as f:
+            report_data = json.load(f)
+          payload = {
+            'user_id': os.environ['RUNNER_USER_ID'],
+            'theme': os.environ['RUNNER_THEME'],
+            'report_data': report_data
+          }
+          with open('payload.json', 'w') as f:
+            json.dump(payload, f, ensure_ascii=False)
+          "
           echo "Ingesting to $API_HOST"
-          curl -X POST "$API_HOST/ingest" \
+          curl -f -X POST "$API_HOST/api/v1/ingest" \
             -H "Authorization: Bearer $API_SECRET_KEY" \
             -H "Content-Type: application/json" \
-            -d @report.json \
-            -v
-      
+            -d @payload.json
+
       - name: Verify Data
         env:
           API_HOST: ${{ secrets.API_HOST }}
           API_SECRET_KEY: ${{ secrets.API_SECRET_KEY }}
         run: |
           echo "Verifying data in database..."
-          curl -X GET "$API_HOST/reports?limit=1" \
+          curl -s -X GET "$API_HOST/api/v1/reports?user_id=smoke_test&limit=1" \
             -H "Authorization: Bearer $API_SECRET_KEY" \
             -H "Content-Type: application/json" | python -m json.tool
