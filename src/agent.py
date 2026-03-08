@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Sequence
 
+import httpx
 from pydantic import BaseModel, Field
 from tqdm import tqdm
 
@@ -23,6 +24,33 @@ except Exception:  # pragma: no cover
 # 日志配置输出到 stderr
 logging.basicConfig(stream=sys.stderr, level=logging.INFO, format='%(levelname)s: %(message)s')
 
+
+def get_embedding(text: str) -> list:
+    """用 DashScope 替代本地 sentence-transformers，获取文本向量。"""
+    response = httpx.post(
+        "https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings",
+        headers={"Authorization": f"Bearer {os.getenv('DASHSCOPE_API_KEY')}"},
+        json={
+            "model": "text-embedding-v2",
+            "input": text[:2000],
+        },
+        timeout=30.0,
+    )
+    response.raise_for_status()
+    body = response.json()
+    # OpenAI 兼容格式用 data；DashScope 原生格式用 output.embeddings
+    if "data" in body and body["data"]:
+        return body["data"][0]["embedding"]
+    if "output" in body and "embeddings" in body["output"]:
+        return body["output"]["embeddings"][0]["embedding"]
+    raise ValueError("无法从响应中解析 embedding")
+
+
+def coarse_filter(papers: List[Dict[str, Any]], top_k: int = 10) -> List[Dict[str, Any]]:
+    """简化版：直接取前 top_k 篇，让大模型自己筛选（避免 CUDA/本地向量模型）。"""
+    return papers[:top_k]
+
+
 # --- 1. 定义大模型强制输出的数据结构 (Pydantic) ---
 class EvaluatedPaper(BaseModel):
     title: str
@@ -35,35 +63,6 @@ class DailyReport(BaseModel):
     date: str
     theme: str
     top_papers: List[EvaluatedPaper]
-
-# --- 2. 本地 RAG 粗筛模块 ---
-class LocalFilter:
-    def __init__(self, model_name='all-MiniLM-L6-v2'):
-        logging.info("正在加载本地向量模型...")
-        try:
-            from sentence_transformers import SentenceTransformer  # type: ignore
-        except Exception as e:  # pragma: no cover
-            raise ImportError("缺少 sentence-transformers 依赖，无法启用本地向量粗筛。") from e
-
-        self.model = SentenceTransformer(model_name)
-        
-    def filter_top_k(self, papers_data: list, user_interest: str, top_k: int = 5) -> list:
-        logging.info(f"开始粗筛，目标兴趣: '{user_interest}'")
-        texts = [f"{p.get('title','')} {p.get('summary','')}".strip() for p in papers_data]
-        
-        # 计算相似度
-        try:
-            from sklearn.metrics.pairwise import cosine_similarity  # type: ignore
-        except Exception as e:  # pragma: no cover
-            raise ImportError("缺少 scikit-learn 依赖，无法计算向量相似度。") from e
-
-        interest_emb = self.model.encode([user_interest])
-        paper_embs = self.model.encode(texts)
-        similarities = cosine_similarity(interest_emb, paper_embs)[0]
-        
-        # 获取 Top K 的索引
-        top_indices = similarities.argsort()[-top_k:][::-1]
-        return [papers_data[i] for i in top_indices]
 
 # 千问 DashScope OpenAI 兼容 endpoint（免费额度见阿里云百炼）
 DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
@@ -230,7 +229,6 @@ def run_agent(
     input_path: Optional[str],
     interest: str,
     top_k: int,
-    local_model: str,
     llm_model: str,
 ) -> DailyReport:
     payload = _read_json_input(input_path)
@@ -241,8 +239,7 @@ def run_agent(
     if top_k <= 0:
         chosen = list(papers)
     else:
-        paper_filter = LocalFilter(model_name=local_model)
-        chosen = paper_filter.filter_top_k(papers, interest, top_k=min(top_k, len(papers)))
+        chosen = coarse_filter(papers, top_k=min(top_k, len(papers)))
 
     date_str = datetime.now().strftime("%Y-%m-%d")
     instructor_client = _create_instructor_client(llm_model)
@@ -294,8 +291,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         default="AI agent orchestration, LLM application, code generation",
         help="用户兴趣/主题，用于本地粗筛与 LLM 报告主题",
     )
-    parser.add_argument("--top-k", type=int, default=5, help="本地粗筛保留的论文数（<=0 表示不筛）")
-    parser.add_argument("--local-model", default="all-MiniLM-L6-v2", help="SentenceTransformer 模型名")
+    parser.add_argument("--top-k", type=int, default=5, help="粗筛保留的论文数（<=0 表示不筛，取前 top_k 篇）")
     parser.add_argument(
         "--model",
         default="qwen-turbo",
@@ -308,7 +304,6 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             input_path=args.input,
             interest=args.interest,
             top_k=args.top_k,
-            local_model=args.local_model,
             llm_model=args.model,
         )
     except Exception as e:
