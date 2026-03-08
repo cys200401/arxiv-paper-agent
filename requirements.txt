@@ -6,7 +6,7 @@ python-dotenv==1.0.0
 libsql-client>=0.3.0
 pydantic==2.6.0
 httpx==0.26.0
-numpy==1.26.0
+numpy>=1.26.2,<3
 # Agent 与 LLM 结构化输出（无 sentence-transformers，避免拉取 PyTorch/CUDA）
 tqdm==4.66.5
 openai
