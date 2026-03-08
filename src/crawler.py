@@ -1,3 +1,4 @@
+import argparse
 import json
 import time
 import os
@@ -255,54 +256,80 @@ class ArxivFetcher:
 # ==========================================
 # 3. 执行调度（【核心改造区域】）
 # ==========================================
+def _fetch_by_query(fetcher: ArxivFetcher, query: str, target_count: int, batch_size: int = 50) -> List[PaperModel]:
+    """按任意 search_query 拉取论文，直到达到 target_count（与 fetch_category 逻辑一致）。"""
+    papers, start = [], 0
+    with tqdm(total=target_count, desc=f"获取 query 列表", leave=False) as pbar:
+        while len(papers) < target_count:
+            current_batch = min(batch_size, target_count - len(papers))
+            try:
+                batch = fetcher.fetch_batch(query, start, current_batch)
+                if not batch:
+                    break
+                papers.extend(batch)
+                start += len(batch)
+                pbar.update(len(batch))
+                time.sleep(fetcher.delay)
+            except Exception as e:
+                logging.error(f"获取列表失败: {e}")
+                time.sleep(5)
+    return papers[:target_count]
+
+
 def main():
     """
     【管道通信模式】
-    运行方式: python crawler.py | python agent.py
+    运行方式: python crawler.py [--query <topic>] | python agent.py
     原理：所有日志/诊断信息 -> stderr；仅 JSON 数据 -> stdout
     """
+    parser = argparse.ArgumentParser(description="arXiv crawler: output papers JSON to stdout for pipeline.")
+    parser.add_argument(
+        "--query",
+        default=None,
+        help="arXiv search_query（如 cat:cs.AI 或 all:machine learning）；不传则使用多类别默认抓取",
+    )
+    parser.add_argument(
+        "--max-results",
+        type=int,
+        default=100,
+        metavar="N",
+        help="使用 --query 时最多拉取的论文数（默认 100）",
+    )
+    args = parser.parse_args()
+
     # 【关键改动 1】强制将日志输出到 stderr，避免污染传给 Agent 的数据流
     logging.basicConfig(
         stream=sys.stderr,
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s'
     )
-    
-    CATEGORIES = {"cs.AI": 40, "cs.CV": 40, "cs.LG": 40, "cs.CL": 40, "cs.RO": 40}
-    fetcher = ArxivFetcher(delay=3.0) 
-    
+
+    fetcher = ArxivFetcher(delay=3.0)
     all_papers: List[PaperModel] = []
-    
-    # 使用 logging 替代 print，确保输出到 stderr
-    logging.info("🎯 第一阶段：获取 200 篇论文的元数据（标题、摘要、作者等，非 PDF 全文）...")
-    
-    for cat, count in CATEGORIES.items():
-        logging.info(f"正在获取类别 {cat} 的 {count} 篇论文...")
-        papers = fetcher.fetch_category(cat, count)
-        all_papers.extend(papers)
-        logging.info(f"类别 {cat} 获取完成，当前总数: {len(all_papers)}")
-    
+
+    if args.query is not None:
+        logging.info("🎯 按 query 获取论文元数据（标题、摘要、作者等）...")
+        logging.info(f"query=%s, max_results=%s", args.query, args.max_results)
+        all_papers = _fetch_by_query(fetcher, args.query, args.max_results)
+    else:
+        CATEGORIES = {"cs.AI": 40, "cs.CV": 40, "cs.LG": 40, "cs.CL": 40, "cs.RO": 40}
+        logging.info("🎯 第一阶段：获取 200 篇论文的元数据（标题、摘要、作者等，非 PDF 全文）...")
+        for cat, count in CATEGORIES.items():
+            logging.info(f"正在获取类别 {cat} 的 {count} 篇论文...")
+            papers = fetcher.fetch_category(cat, count)
+            all_papers.extend(papers)
+            logging.info(f"类别 {cat} 获取完成，当前总数: {len(all_papers)}")
+
     # 【关键改动 2】将论文列表转换为字典列表，准备序列化
     papers_data = [p.model_dump() for p in all_papers]
-    
+
     # 【关键改动 3】不写文件，直接将 JSON 字符串严格输出到标准输出 (stdout)
-    # ensure_ascii=False 保证中文正常显示，indent=2 保持可读性（管道下游可压缩）
     json_output = json.dumps(papers_data, ensure_ascii=False, indent=2)
     sys.stdout.write(json_output)
-    
-    # 【关键改动 4】确保缓冲区立即刷新，数据实时传递给下游进程
     sys.stdout.flush()
-    
-    # 【关键改动 5】在管道模式下，PDF 下载应作为独立步骤或通过参数控制
-    # 如需下载 PDF，请取消下面注释，或改为命令行参数控制（如 --download-pdfs）
-    """
-    pdf_dir = "papers_pdf"
-    fetcher.download_pdfs(all_papers, save_dir=pdf_dir)
-    logging.info(f"PDF 实体文件存放路径: ./{pdf_dir}/")
-    """
-    
-    # 诊断信息继续输出到 stderr，不影响管道数据流
+
     logging.info(f"✅ 成功获取 {len(all_papers)} 篇论文元数据，已通过管道传给 Agent 做粗筛与精读")
+
 
 if __name__ == "__main__":
     main()

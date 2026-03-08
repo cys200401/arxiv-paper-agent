@@ -10,6 +10,7 @@
 
 | 变量名 | 说明 | 示例/取值 |
 |--------|------|-----------|
+| `RAILPACK_PYTHON_VERSION` | 构建用 Python 版本（避免 3.13 下 pydantic 编译失败） | `3.12` |
 | `TURSO_DATABASE_URL` | Turso 数据库地址 | `libsql://你的数据库地址.turso.io` |
 | `TURSO_AUTH_TOKEN` | Turso 认证 Token | 在 Turso 控制台生成的 Token |
 | `API_SECRET_KEY` | 接口鉴权密钥 | 自定义一个强密码（建议随机长字符串） |

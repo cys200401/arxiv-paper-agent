@@ -27,7 +27,9 @@ from pydantic import BaseModel, Field
 # Config & connection factory
 # ---------------------------------------------------------------------------
 
-API_SECRET_KEY = os.getenv("API_SECRET_KEY", "")
+def _get_api_secret_key() -> str:
+    """Read at request time so tests can patch os.environ before the request."""
+    return os.getenv("API_SECRET_KEY", "")
 
 
 class _Sqlite3Result:
@@ -118,12 +120,13 @@ def _fetch_reports(client, user_id: str, limit: int) -> list[dict]:
 async def verify_api_key(
     authorization: Annotated[str | None, Header()] = None,
 ) -> None:
-    if not API_SECRET_KEY:
+    api_secret_key = _get_api_secret_key()
+    if not api_secret_key:
         raise HTTPException(status_code=500, detail="API_SECRET_KEY not configured")
     if not authorization:
         raise HTTPException(status_code=401, detail="Missing Authorization header")
     token = authorization.removeprefix("Bearer ").strip() if authorization else ""
-    if token != API_SECRET_KEY:
+    if token != api_secret_key:
         raise HTTPException(status_code=403, detail="Invalid API key")
 
 
@@ -185,7 +188,10 @@ async def ingest(body: IngestBody):
     db = getattr(app.state, "db", None)
     if db is None:
         raise HTTPException(status_code=503, detail="Database not available")
-    await asyncio.to_thread(_insert_report, db, body.user_id, body.theme, body.report_data)
+    try:
+        await asyncio.to_thread(_insert_report, db, body.user_id, body.theme, body.report_data)
+    except Exception:
+        raise HTTPException(status_code=503, detail="Database not available")
     return {"ok": True, "user_id": body.user_id, "theme": body.theme}
 
 
