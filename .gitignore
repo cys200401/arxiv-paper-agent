@@ -1,0 +1,14 @@
+# Local DB (use Turso in production)
+local.db
+*.db-journal
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.env.*
+
+# PDFs (large; fetch on demand or store elsewhere)
+papers_pdf/
