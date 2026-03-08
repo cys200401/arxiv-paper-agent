@@ -1,5 +1,9 @@
 # Railway 部署说明
 
+## 依赖说明
+
+- **必须使用 `libsql-client`**（见 `requirements.txt`），不要使用已废弃的 `libsql-experimental`。后者需从源码编译 Rust，在 Railway 上会因依赖与网络问题导致构建失败。
+
 ## 环境变量配置
 
 登录 [Railway](https://railway.app)，连接你的 GitHub 仓库。在项目的 **Variables（环境变量）** 中，严格填入以下三个值：
