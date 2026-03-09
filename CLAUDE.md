@@ -28,7 +28,7 @@ python src/crawler.py | python src/agent.py --interest "cs.AI" --model gemini-2.
 python -m src.cli.crawler --query "machine learning" --target 5 --output papers.json
 python -m src.cli.agent --input papers.json --output report.json --interest "ML"
 
-# Start API server
+# Start API server (interactive docs at http://127.0.0.1:8000/docs)
 uvicorn src.api:app --reload --host 127.0.0.1 --port 8000
 ```
 
@@ -36,13 +36,13 @@ uvicorn src.api:app --reload --host 127.0.0.1 --port 8000
 
 ```bash
 # Run all tests
-PYTHONPATH=src python -m pytest tests/ -v
+PYTHONPATH=src pytest tests/ -v
 
 # Run specific test file
-PYTHONPATH=src python -m pytest tests/test_crawler.py -v
+PYTHONPATH=src pytest tests/test_crawler.py -v
 
 # Run single test
-PYTHONPATH=src python -m pytest tests/test_agent.py::test_function_name -v
+PYTHONPATH=src pytest tests/test_agent.py::test_function_name -v
 
 # Integration test (requires DASHSCOPE_API_KEY or GEMINI_API_KEY)
 ./scripts/run_integration_test.sh
@@ -51,7 +51,7 @@ PYTHONPATH=src python -m pytest tests/test_agent.py::test_function_name -v
 ### Database
 
 ```bash
-# Initialize local database
+# Initialize local database (creates users + daily_reports tables)
 sqlite3 local.db < schema.sql
 
 # Environment variables for Turso
@@ -83,6 +83,7 @@ export TURSO_AUTH_TOKEN="your-token"
 - **Pydantic V2**: All data structures use `BaseModel` with `ConfigDict(extra="allow")`
 - **Async/Thread Safety**: API uses `asyncio.to_thread()` for sync DB ops; Crawler and Agent use `ThreadPoolExecutor` for parallel operations
 - **Database Flexibility**: Supports both local SQLite (`file:local.db`) and remote Turso (`libsql://...`)
+- **Retry Logic**: Crawler uses `tenacity` for automatic retries with exponential backoff on arXiv API calls
 
 ### Data Models
 
@@ -123,3 +124,6 @@ Railway deployment with GitHub Actions workflows:
 
 - CLI modules use relative imports (`from ..crawler import ...`)
 - `instructor>=1.7.0` required for `from_provider()` support with Gemini
+- `jsonref>=1.1.0` required by instructor for Gemini provider
+- Model selection in agent: models starting with `qwen` use DASHSCOPE_API_KEY, others use GEMINI_API_KEY
+- Database tables: `users` (id, username, topic_query) and `daily_reports` (id, user_id, report_date, theme, content_json)

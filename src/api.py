@@ -8,6 +8,7 @@ Production-grade FastAPI application for arxiv data engine.
 
 import asyncio
 import json
+import logging
 import os
 import sqlite3
 import uuid
@@ -15,8 +16,16 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Annotated, Any
 
+logger = logging.getLogger(__name__)
+
 try:
     import libsql_client
+    try:
+        # Log libsql_client version at startup to debug 505 errors on Railway
+        version = getattr(libsql_client, "__version__", "unknown")
+        logger.info(f"libsql_client version: {version}")
+    except Exception as e:  # pragma: no cover - best-effort diagnostics
+        logger.warning(f"Cannot check libsql_client version: {e}")
 except ImportError:
     libsql_client = None  # type: ignore[misc, assignment]
 

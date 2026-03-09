@@ -1,0 +1,101 @@
+[
+  {
+    "id": "2603.05504",
+    "title": "RoboPocket: Improve Robot Policies Instantly with Your Phone",
+    "authors": [
+      "Junjie Fang",
+      "Wendi Chen",
+      "Han Xue",
+      "Fangyuan Zhou",
+      "Tian Le",
+      "Yi Wang",
+      "Yuting Zhang",
+      "Jun Lv",
+      "Chuan Wen",
+      "Cewu Lu"
+    ],
+    "summary": "Scaling imitation learning is fundamentally constrained by the efficiency of data collection. While handheld interfaces have emerged as a scalable solution for in-the-wild data acquisition, they predominantly operate in an open-loop manner: operators blindly collect demonstrations without knowing the underlying policy's weaknesses, leading to inefficient coverage of critical state distributions. Conversely, interactive methods like DAgger effectively address covariate shift but rely on physical robot execution, which is costly and difficult to scale. To reconcile this trade-off, we introduce RoboPocket, a portable system that enables Robot-Free Instant Policy Iteration using single consumer smartphones. Its core innovation is a Remote Inference framework that visualizes the policy's predicted trajectory via Augmented Reality (AR) Visual Foresight. This immersive feedback allows collectors to proactively identify potential failures and focus data collection on the policy's weak regions without requiring a physical robot. Furthermore, we implement an asynchronous Online Finetuning pipeline that continuously updates the policy with incoming data, effectively closing the learning loop in minutes. Extensive experiments demonstrate that RoboPocket adheres to data scaling laws and doubles the data efficiency compared to offline scaling strategies, overcoming their long-standing efficiency bottleneck. Moreover, our instant iteration loop also boosts sample efficiency by up to 2$\\times$ in distributed environments a small number of interactive corrections per person. Project page and videos: https://robo-pocket.github.io.",
+    "published_date": "2026-03-05T18:59:38Z",
+    "pdf_url": "https://arxiv.org/pdf/2603.05504v1.pdf",
+    "primary_category": "cs.RO",
+    "categories": [
+      "cs.RO",
+      "cs.AI",
+      "cs.LG"
+    ]
+  },
+  {
+    "id": "2603.05500",
+    "title": "POET-X: Memory-efficient LLM Training by Scaling Orthogonal Transformation",
+    "authors": [
+      "Zeju Qiu",
+      "Lixin Liu",
+      "Adrian Weller",
+      "Han Shi",
+      "Weiyang Liu"
+    ],
+    "summary": "Efficient and stable training of large language models (LLMs) remains a core challenge in modern machine learning systems. To address this challenge, Reparameterized Orthogonal Equivalence Training (POET), a spectrum-preserving framework that optimizes each weight matrix through orthogonal equivalence transformation, has been proposed. Although POET provides strong training stability, its original implementation incurs high memory consumption and computational overhead due to intensive matrix multiplications. To overcome these limitations, we introduce POET-X, a scalable and memory-efficient variant that performs orthogonal equivalence transformations with significantly reduced computational cost. POET-X maintains the generalization and stability benefits of POET while achieving substantial improvements in throughput and memory efficiency. In our experiments, POET-X enables the pretraining of billion-parameter LLMs on a single Nvidia H100 GPU, and in contrast, standard optimizers such as AdamW run out of memory under the same settings.",
+    "published_date": "2026-03-05T18:59:23Z",
+    "pdf_url": "https://arxiv.org/pdf/2603.05500v1.pdf",
+    "primary_category": "cs.LG",
+    "categories": [
+      "cs.LG",
+      "cs.AI",
+      "cs.CL"
+    ]
+  },
+  {
+    "id": "2603.05499",
+    "title": "Calculating trace distances of bosonic states in Krylov subspace",
+    "authors": [
+      "Javier Martínez-Cifuentes",
+      "Nicolás Quesada"
+    ],
+    "summary": "Continuous-variable quantum systems are central to quantum technologies, with Gaussian states playing a key role due to their broad applicability and simple description via first and second moments. Distinguishing Gaussian states requires computing their trace distance, but no analytical formula exists for general states, and numerical evaluation is difficult due to the exponential cost of representing infinite-dimensional operators. We introduce an efficient numerical method to compute the trace distance between a pure and a mixed Gaussian state, based on a generalized Lanczos algorithm that avoids explicit matrix representations and uses only moment information. The technique extends to non-Gaussian states expressible as linear combinations of Gaussian states. We also show how it can yield lower bounds on the trace distance between mixed Gaussian states, offering a practical tool for state certification and learning in continuous-variable quantum systems.",
+    "published_date": "2026-03-05T18:59:06Z",
+    "pdf_url": "https://arxiv.org/pdf/2603.05499v1.pdf",
+    "primary_category": "quant-ph",
+    "categories": [
+      "quant-ph"
+    ]
+  },
+  {
+    "id": "2603.05495",
+    "title": "Cheap Thrills: Effective Amortized Optimization Using Inexpensive Labels",
+    "authors": [
+      "Khai Nguyen",
+      "Petros Ellinas",
+      "Anvita Bhagavathula",
+      "Priya Donti"
+    ],
+    "summary": "To scale the solution of optimization and simulation problems, prior work has explored machine-learning surrogates that inexpensively map problem parameters to corresponding solutions. Commonly used approaches, including supervised and self-supervised learning with either soft or hard feasibility enforcement, face inherent challenges such as reliance on expensive, high-quality labels or difficult optimization landscapes. To address their trade-offs, we propose a novel framework that first collects \"cheap\" imperfect labels, then performs supervised pretraining, and finally refines the model through self-supervised learning to improve overall performance. Our theoretical analysis and merit-based criterion show that labeled data need only place the model within a basin of attraction, confirming that only modest numbers of inexact labels and training epochs are required. We empirically validate our simple three-stage strategy across challenging domains, including nonconvex constrained optimization, power-grid operation, and stiff dynamical systems, and show that it yields faster convergence; improved accuracy, feasibility, and optimality; and up to 59x reductions in total offline cost.",
+    "published_date": "2026-03-05T18:58:39Z",
+    "pdf_url": "https://arxiv.org/pdf/2603.05495v1.pdf",
+    "primary_category": "cs.LG",
+    "categories": [
+      "cs.LG",
+      "math.OC"
+    ]
+  },
+  {
+    "id": "2603.05494",
+    "title": "Censored LLMs as a Natural Testbed for Secret Knowledge Elicitation",
+    "authors": [
+      "Helena Casademunt",
+      "Bartosz Cywiński",
+      "Khoi Tran",
+      "Arya Jakkli",
+      "Samuel Marks",
+      "Neel Nanda"
+    ],
+    "summary": "Large language models sometimes produce false or misleading responses. Two approaches to this problem are honesty elicitation -- modifying prompts or weights so that the model answers truthfully -- and lie detection -- classifying whether a given response is false. Prior work evaluates such methods on models specifically trained to lie or conceal information, but these artificial constructions may not resemble naturally-occurring dishonesty. We instead study open-weights LLMs from Chinese developers, which are trained to censor politically sensitive topics: Qwen3 models frequently produce falsehoods about subjects like Falun Gong or the Tiananmen protests while occasionally answering correctly, indicating they possess knowledge they are trained to suppress. Using this as a testbed, we evaluate a suite of elicitation and lie detection techniques. For honesty elicitation, sampling without a chat template, few-shot prompting, and fine-tuning on generic honesty data most reliably increase truthful responses. For lie detection, prompting the censored model to classify its own responses performs near an uncensored-model upper bound, and linear probes trained on unrelated data offer a cheaper alternative. The strongest honesty elicitation techniques also transfer to frontier open-weights models including DeepSeek R1. Notably, no technique fully eliminates false responses. We release all prompts, code, and transcripts.",
+    "published_date": "2026-03-05T18:58:14Z",
+    "pdf_url": "https://arxiv.org/pdf/2603.05494v1.pdf",
+    "primary_category": "cs.LG",
+    "categories": [
+      "cs.LG",
+      "cs.AI",
+      "cs.CL"
+    ]
+  }
+]
