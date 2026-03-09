@@ -88,12 +88,11 @@ jobs:
             json.dump(payload, f, ensure_ascii=False)
           "
           for attempt in 1 2 3; do
-            curl -s -w "\n%{http_code}" -X POST "$API_HOST/api/v1/ingest" \
+            code=$(curl -s -o response.txt -w "%{http_code}" -X POST "$API_HOST/api/v1/ingest" \
               -H "Authorization: Bearer $API_SECRET_KEY" \
               -H "Content-Type: application/json" \
-              -d @payload.json -o response.txt
-            code=$(tail -n1 response.txt)
-            body=$(sed '$d' response.txt)
+              -d @payload.json)
+            body=$(cat response.txt)
             if [ "$code" = "200" ]; then echo "Ingest succeeded"; exit 0; fi
             echo "Attempt $attempt failed: HTTP $code"
             echo "$body"
