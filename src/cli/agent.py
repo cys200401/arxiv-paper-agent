@@ -1,6 +1,6 @@
 """
 CLI entry point for the arXiv agent.
-Run with: python -m src.cli.agent --input papers.json --output report.json [--interest "..." --model gemini-2.0-flash]
+Run with: python -m src.cli.agent --input papers.json --output report.json [--interest "..." --model qwen-turbo]
 """
 import argparse
 import sys
@@ -20,8 +20,8 @@ def main() -> int:
     parser.add_argument("--top-k", type=int, default=5, help="Number of papers to evaluate (default: 5).")
     parser.add_argument(
         "--model",
-        default="gemini-2.0-flash",
-        help="LLM model: gemini-2.0-flash (default) or qwen-turbo / qwen-plus.",
+        default="qwen-turbo",
+        help="LLM model: qwen-turbo (default), qwen-plus, or gemini-2.0-flash.",
     )
     args = parser.parse_args()
 

@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS users (
     created_at DATETIME NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE INDEX IF NOT EXISTS idx_users_active ON users(is_active);
+
 -- 创建 daily_reports 表
 CREATE TABLE IF NOT EXISTS daily_reports (
     id TEXT PRIMARY KEY,
@@ -19,11 +21,13 @@ CREATE TABLE IF NOT EXISTS daily_reports (
     FOREIGN KEY(user_id) REFERENCES users(id)
 );
 
--- 插入三条测试用户数据
-INSERT INTO users (id, username, topic_query, is_active, created_at)
-VALUES 
-    ('u001', 'alice', 'AI 与信号处理在通信工程的应用', 1, datetime('now')),
-    ('u002', 'bob', '无人机集群的智能协同与自适应控制', 1, datetime('now')),
-    ('u003', 'charlie', '用于音频异常检测的嵌入式 AI 技术', 1, datetime('now'));
+CREATE INDEX IF NOT EXISTS idx_daily_reports_user_date
+ON daily_reports(user_id, report_date DESC, created_at DESC);
 
+-- 插入三条测试用户数据
+INSERT OR IGNORE INTO users (id, username, topic_query, is_active, created_at)
+VALUES 
+    ('user_1', 'alice', 'cat:cs.AI', 1, datetime('now')),
+    ('user_2', 'bob', 'cat:cs.LG', 1, datetime('now')),
+    ('user_3', 'charlie', 'all:reinforcement learning', 1, datetime('now'));
 

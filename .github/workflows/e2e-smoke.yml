@@ -1,5 +1,5 @@
 # E2E Smoke: manual run with topic input. Crawler -> Agent -> Ingest -> Verify.
-# Secrets: GEMINI_API_KEY, API_HOST, API_SECRET_KEY
+# Secrets: DASHSCOPE_API_KEY, API_HOST, API_SECRET_KEY
 
 name: E2E Smoke
 
@@ -40,10 +40,10 @@ jobs:
 
       - name: Check required secrets
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
         run: |
-          if [ -z "$GEMINI_API_KEY" ]; then
-            echo "::error::GEMINI_API_KEY secret is not set or empty. Add it in Settings → Secrets and variables → Actions."
+          if [ -z "$DASHSCOPE_API_KEY" ]; then
+            echo "::error::DASHSCOPE_API_KEY secret is not set or empty. Add it in Settings → Secrets and variables → Actions."
             exit 1
           fi
 
@@ -58,9 +58,9 @@ jobs:
       - name: Run Agent
         env:
           PYTHONPATH: .
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
         run: |
-          python -m src.cli.agent --input papers.json --output report.json --interest "${{ github.event.inputs.topic }}" --model gemini-2.0-flash
+          python -m src.cli.agent --input papers.json --output report.json --interest "${{ github.event.inputs.topic }}" --model qwen-turbo
           echo "Agent output:"
           head -c 500 report.json
 

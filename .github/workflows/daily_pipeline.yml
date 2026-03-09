@@ -1,5 +1,5 @@
 # Daily pipeline: crawler | agent per user/topic, then POST results to Railway API.
-# Secrets: GEMINI_API_KEY, API_HOST (e.g. https://xxx.up.railway.app), API_SECRET_KEY
+# Secrets: DASHSCOPE_API_KEY, API_HOST (e.g. https://xxx.up.railway.app), API_SECRET_KEY
 
 name: Daily Pipeline
 
@@ -36,18 +36,18 @@ jobs:
 
       - name: Check required secrets
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
         run: |
-          if [ -z "$GEMINI_API_KEY" ]; then
-            echo "::error::GEMINI_API_KEY secret is not set or empty. Add it in Settings → Secrets and variables → Actions."
+          if [ -z "$DASHSCOPE_API_KEY" ]; then
+            echo "::error::DASHSCOPE_API_KEY secret is not set or empty. Add it in Settings → Secrets and variables → Actions."
             exit 1
           fi
 
       - name: Run crawler and agent
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
         run: |
-          python src/crawler.py --query "${{ matrix.topic }}" | python src/agent.py --interest "${{ matrix.topic }}" --model gemini-2.0-flash > report.json
+          python src/crawler.py --query "${{ matrix.topic }}" | python src/agent.py --interest "${{ matrix.topic }}" --model qwen-turbo > report.json
           if [ ! -s report.json ]; then
             echo "Pipeline produced empty output"
             exit 1

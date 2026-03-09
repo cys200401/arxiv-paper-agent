@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Daily Academic Paper Recommendation System that crawls arXiv papers, filters them based on user interests, generates LLM-powered bilingual summaries (English + Chinese), and stores reports in a Turso SQLite database with a FastAPI REST API.
+Daily Academic Paper Recommendation System that crawls arXiv papers, filters them based on user interests, generates LLM-powered bilingual summaries (English + Chinese), and stores reports in a SQLite database behind a FastAPI REST API.
 
 ## Commands
 
@@ -51,12 +51,12 @@ PYTHONPATH=src pytest tests/test_agent.py::test_function_name -v
 ### Database
 
 ```bash
-# Initialize local database (creates users + daily_reports tables)
-sqlite3 local.db < schema.sql
+# Optional: initialize local database manually
+mkdir -p "$HOME/Downloads/arxiv_data"
+sqlite3 "$HOME/Downloads/arxiv_data/papers.db" < schema.sql
 
-# Environment variables for Turso
-export TURSO_DATABASE_URL="libsql://your-db.turso.io"
-export TURSO_AUTH_TOKEN="your-token"
+# Optional: override default SQLite file location
+export SQLITE_DATABASE_PATH="/absolute/path/to/app.db"
 ```
 
 ## Architecture
@@ -82,7 +82,7 @@ export TURSO_AUTH_TOKEN="your-token"
 - **Unix Pipeline Philosophy**: Crawler outputs pure JSON to stdout, all logs go to stderr, Agent reads stdin. Enables composition: `crawler | agent`
 - **Pydantic V2**: All data structures use `BaseModel` with `ConfigDict(extra="allow")`
 - **Async/Thread Safety**: API uses `asyncio.to_thread()` for sync DB ops; Crawler and Agent use `ThreadPoolExecutor` for parallel operations
-- **Database Flexibility**: Supports both local SQLite (`file:local.db`) and remote Turso (`libsql://...`)
+- **SQLite Only**: The API always uses SQLite. If legacy `TURSO_DATABASE_URL` or `TURSO_AUTH_TOKEN` Variables still exist on Railway, they are ignored unless `TURSO_DATABASE_URL` already points to `file:...`.
 - **Retry Logic**: Crawler uses `tenacity` for automatic retries with exponential backoff on arXiv API calls
 
 ### Data Models
@@ -109,8 +109,8 @@ export TURSO_AUTH_TOKEN="your-token"
 ```bash
 DASHSCOPE_API_KEY    # For Qwen LLM (阿里云百炼)
 GEMINI_API_KEY       # For Gemini LLM
-TURSO_DATABASE_URL   # Database URL (file:local.db or libsql://...)
-TURSO_AUTH_TOKEN     # Turso auth token (for remote DB)
+SQLITE_DATABASE_PATH # Optional custom SQLite file path; default is ~/Downloads/arxiv_data/papers.db
+TURSO_DATABASE_URL   # Optional legacy variable; ignored for remote libsql/http values
 API_SECRET_KEY       # Bearer token for API authentication
 ```
 

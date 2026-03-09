@@ -1,30 +1,43 @@
 # Railway 部署说明
 
-## 依赖说明
+## 当前数据库方案
 
-- **必须使用 `libsql-client`**（见 `requirements.txt`），不要使用已废弃的 `libsql-experimental`。后者需从源码编译 Rust，在 Railway 上会因依赖与网络问题导致构建失败。
+项目现在只使用 SQLite，不再连接 Turso/libSQL。应用启动时会自动初始化 `users` 和 `daily_reports` 表，并默认把数据库文件放在用户下载目录下的 `~/Downloads/arxiv_data/papers.db`。在你的机器上，这会解析为 `/Users/chenyushi/Downloads/arxiv_data/papers.db`。
 
-## 环境变量配置
+## Railway Variables
 
-登录 [Railway](https://railway.app)，连接你的 GitHub 仓库。在项目的 **Variables（环境变量）** 中，严格填入以下三个值：
+在 [Railway](https://railway.app) 的 **Variables** 中，当前真正需要的只有以下变量：
 
 | 变量名 | 说明 | 示例/取值 |
 |--------|------|-----------|
-| `RAILPACK_PYTHON_VERSION` | 构建用 Python 版本（避免 3.13 下 pydantic 编译失败） | `3.12` |
-| `TURSO_DATABASE_URL` | Turso 数据库地址 | `libsql://你的数据库地址.turso.io` |
-| `TURSO_AUTH_TOKEN` | Turso 认证 Token | 在 Turso 控制台生成的 Token |
-| `API_SECRET_KEY` | 接口鉴权密钥 | 自定义一个强密码（建议随机长字符串） |
+| `RAILPACK_PYTHON_VERSION` | 构建用 Python 版本 | `3.12` |
+| `API_SECRET_KEY` | 接口鉴权密钥 | 自定义一个强随机字符串 |
+| `SQLITE_DATABASE_PATH` | 可选，自定义 SQLite 文件路径 | `/Users/chenyushi/Downloads/arxiv_data/papers.db` |
 
-### 填写示例（仅作格式参考，勿直接使用）
+### 关于你现有的 Turso 变量
 
+如果你之前已经在 Railway 配置了：
+
+```text
+TURSO_DATABASE_URL=libsql://...
+TURSO_AUTH_TOKEN=...
 ```
-TURSO_DATABASE_URL = libsql://你的数据库地址.turso.io
-TURSO_AUTH_TOKEN = 你刚刚生成的 Token
-API_SECRET_KEY = 自定义一个强密码
+
+现在**不用删除，也不用来回改网页配置**。应用会自动忽略这两个旧变量中的远程 libSQL 配置，直接回退到 SQLite。也就是说，保留它们不会阻止服务启动。
+
+只有一种例外：如果你把 `TURSO_DATABASE_URL` 设成了 `file:...`，应用会把它当作 SQLite 文件路径继续使用。
+
+## 推荐配置
+
+- 最省事的做法：只保留 `API_SECRET_KEY`，让应用默认使用 `~/Downloads/arxiv_data/papers.db`；在你的机器上就是 `/Users/chenyushi/Downloads/arxiv_data/papers.db`。
+- 如果你后面在 Railway 挂了持久卷，可以再额外设置 `SQLITE_DATABASE_PATH` 指向卷内路径；这一步是可选的，不影响当前切换到 SQLite。
+
+## 鉴权说明
+
+`/api/v1/ingest` 和 `/api/v1/reports` 仍然要求：
+
+```text
+Authorization: Bearer <API_SECRET_KEY>
 ```
 
-- **TURSO_DATABASE_URL**：在 [Turso](https://turso.tech) 创建数据库后，在控制台复制「Database URL」。
-- **TURSO_AUTH_TOKEN**：同一项目中生成 Token（如 `turso db tokens create <数据库名>` 或控制台生成）。
-- **API_SECRET_KEY**：自行设定强密码，用于保护 `/api/v1/ingest`、`/api/v1/reports` 等接口；调用时在请求头中携带 `X-API-Key: <API_SECRET_KEY>`。
-
-保存后重新部署，应用会使用上述环境变量连接 Turso 并启用 API 鉴权。
+保存变量后重新部署即可，无需再配置 Turso。

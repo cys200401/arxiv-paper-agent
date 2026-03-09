@@ -1,9 +1,9 @@
 """
-Production-grade FastAPI application for arxiv data engine.
-- Lifespan with DB connection warm-up (SELECT 1)
-- Smart connection factory (file: local, http(s) -> libsql:// + auth)
-- API_SECRET_KEY auth on all business endpoints
-- /health for Railway, POST /api/v1/ingest, GET /api/v1/reports (async via to_thread)
+FastAPI application for arxiv data engine.
+- SQLite-only storage with automatic schema initialization
+- Backward-compatible handling for legacy TURSO_* env vars
+- API_SECRET_KEY auth on business endpoints
+- /health for Railway, POST /api/v1/ingest, GET /api/v1/reports
 """
 
 import asyncio
@@ -11,26 +11,21 @@ import json
 import logging
 import os
 import sqlite3
+import threading
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Annotated, Any
+
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
-try:
-    import libsql_client
-    try:
-        # Log libsql_client version at startup to debug 505 errors on Railway
-        version = getattr(libsql_client, "__version__", "unknown")
-        logger.info(f"libsql_client version: {version}")
-    except Exception as e:  # pragma: no cover - best-effort diagnostics
-        logger.warning(f"Cannot check libsql_client version: {e}")
-except ImportError:
-    libsql_client = None  # type: ignore[misc, assignment]
-
-from fastapi import FastAPI, Header, HTTPException, Depends, Query
-from pydantic import BaseModel, Field
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_SQLITE_DATABASE_PATH = Path.home() / "Downloads" / "arxiv_data" / "papers.db"
+DEFAULT_SCHEMA_PATH = REPO_ROOT / "schema.sql"
 
 # ---------------------------------------------------------------------------
 # Config & connection factory
@@ -42,49 +37,97 @@ def _get_api_secret_key() -> str:
 
 
 class _Sqlite3Result:
-    """Minimal result adapter so .rows works like libsql_client ResultSet."""
+    """Minimal result adapter so callers can use .rows consistently."""
     __slots__ = ("rows",)
+
     def __init__(self, rows: list):
         self.rows = rows
 
 
 class _Sqlite3Wrapper:
-    """Stdlib sqlite3 wrapper with libsql_client-like execute() and .rows (for file: when libsql_client not installed)."""
-    __slots__ = ("_conn",)
+    """Thread-safe sqlite3 wrapper with execute() and .rows."""
+    __slots__ = ("_conn", "_lock", "path")
 
-    def __init__(self, conn: sqlite3.Connection):
-        self._conn = conn
+    def __init__(self, path: Path):
+        self.path = str(path)
+        self._lock = threading.Lock()
+        self._conn = sqlite3.connect(path, check_same_thread=False, timeout=30)
+        self._conn.execute("PRAGMA foreign_keys = ON")
+        self._conn.commit()
 
     def execute(self, sql: str, args: list | None = None) -> _Sqlite3Result:
-        cur = self._conn.execute(sql, args or [])
-        return _Sqlite3Result(cur.fetchall())
+        with self._lock:
+            cur = self._conn.execute(sql, args or [])
+            rows = cur.fetchall()
+            self._conn.commit()
+        return _Sqlite3Result(rows)
+
+    def executescript(self, sql_script: str) -> None:
+        with self._lock:
+            self._conn.executescript(sql_script)
+            self._conn.commit()
 
     def close(self) -> None:
-        self._conn.close()
+        with self._lock:
+            self._conn.close()
 
 
-def get_db_connection():  # -> libsql_client.Client | _Sqlite3Wrapper
+def _repo_relative_path(raw_path: str) -> Path:
+    path = Path(raw_path).expanduser()
+    if path.is_absolute():
+        return path
+    return REPO_ROOT / path
+
+
+def _path_from_file_url(db_url: str) -> Path:
+    path = db_url[5:] if len(db_url) > 5 else "local.db"
+    if path.startswith("//"):
+        return Path(path[1:]).expanduser()
+    return _repo_relative_path(path)
+
+
+def resolve_sqlite_db_path() -> Path:
     """
-    Smart connection factory: reads TURSO_DATABASE_URL.
-    - file: -> connect locally (sqlite3 if libsql_client not installed, else libsql_client).
-    - http(s): -> convert to libsql:// and connect with TURSO_AUTH_TOKEN (requires libsql_client).
+    Resolve the SQLite database path.
+
+    Priority:
+    1. SQLITE_DATABASE_PATH
+    2. TURSO_DATABASE_URL when it already points to file:...
+    3. ~/Downloads/arxiv_data/papers.db
+
+    Remote libsql/http Turso URLs are ignored on purpose so Railway users do not
+    need to delete legacy Variables before switching the app to SQLite.
     """
-    db_url = os.getenv("TURSO_DATABASE_URL", "file:local.db").strip()
-    auth_token = os.getenv("TURSO_AUTH_TOKEN", "").strip()
+    sqlite_database_path = os.getenv("SQLITE_DATABASE_PATH", "").strip()
+    if sqlite_database_path:
+        return _repo_relative_path(sqlite_database_path)
 
-    if db_url.startswith("file:"):
-        if libsql_client is not None:
-            return libsql_client.create_client_sync(db_url)
-        path = db_url[5:] if len(db_url) > 5 else "local.db"
-        if path.startswith("//"):
-            path = path[1:]  # file:///tmp/db -> /tmp/db
-        return _Sqlite3Wrapper(sqlite3.connect(path))
+    legacy_turso_url = os.getenv("TURSO_DATABASE_URL", "").strip()
+    if legacy_turso_url.startswith("file:"):
+        return _path_from_file_url(legacy_turso_url)
 
-    if libsql_client is None:
-        raise RuntimeError("Remote Turso requires: pip install libsql-client")
-    if db_url.startswith("http://") or db_url.startswith("https://"):
-        db_url = db_url.replace("https://", "libsql://").replace("http://", "libsql://")
-    return libsql_client.create_client_sync(db_url, auth_token=auth_token)
+    if legacy_turso_url:
+        scheme = legacy_turso_url.split(":", 1)[0]
+        logger.warning(
+            "Ignoring legacy TURSO_DATABASE_URL with scheme '%s'; using SQLite at %s instead. "
+            "Set SQLITE_DATABASE_PATH if you want a custom SQLite location.",
+            scheme,
+            DEFAULT_SQLITE_DATABASE_PATH,
+        )
+    return DEFAULT_SQLITE_DATABASE_PATH
+
+
+def get_db_connection() -> _Sqlite3Wrapper:
+    db_path = resolve_sqlite_db_path()
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    return _Sqlite3Wrapper(db_path)
+
+
+def initialize_database(client: _Sqlite3Wrapper) -> None:
+    """Create required tables and seed users if schema.sql is available."""
+    if not DEFAULT_SCHEMA_PATH.exists():
+        raise RuntimeError(f"schema.sql not found at {DEFAULT_SCHEMA_PATH}")
+    client.executescript(DEFAULT_SCHEMA_PATH.read_text(encoding="utf-8"))
 
 
 def _execute_select_one(client) -> None:
@@ -95,7 +138,7 @@ def _execute_select_one(client) -> None:
 def _insert_report(client, user_id: str, theme: str, report_data: Any) -> None:
     """Sync INSERT into daily_reports; must be run via asyncio.to_thread."""
     report_id = str(uuid.uuid4())
-    report_date = datetime.utcnow().strftime("%Y-%m-%d")
+    report_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     content_json = json.dumps(report_data) if not isinstance(report_data, str) else report_data
     client.execute(
         "INSERT INTO daily_reports (id, user_id, report_date, theme, content_json) VALUES (?, ?, ?, ?, ?)",
@@ -146,8 +189,10 @@ async def verify_api_key(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     client = await asyncio.to_thread(get_db_connection)
+    await asyncio.to_thread(initialize_database, client)
     await asyncio.to_thread(_execute_select_one, client)
     app.state.db = client
+    app.state.db_path = client.path
     yield
     if hasattr(app.state, "db") and app.state.db is not None:
         client = app.state.db
@@ -175,12 +220,17 @@ async def health():
     """Health probe for Railway: returns DB connection status."""
     db = getattr(app.state, "db", None)
     if db is None:
-        return {"status": "unhealthy", "database": "not_initialized"}
+        return {"status": "unhealthy", "database": "not_initialized", "backend": "sqlite"}
     try:
         await asyncio.to_thread(_execute_select_one, db)
-        return {"status": "ok", "database": "connected"}
+        return {
+            "status": "ok",
+            "database": "connected",
+            "backend": "sqlite",
+            "path": getattr(app.state, "db_path", None),
+        }
     except Exception as e:
-        return {"status": "unhealthy", "database": str(e)}
+        return {"status": "unhealthy", "database": str(e), "backend": "sqlite"}
 
 
 # ----- Ingest -----

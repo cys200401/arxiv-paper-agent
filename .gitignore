@@ -1,4 +1,4 @@
-# Local DB (use Turso in production)
+# Local SQLite DB
 local.db
 *.db-journal
 
