@@ -41,6 +41,9 @@ PYTHONPATH=src python -m pytest tests/ -v
 # Run specific test file
 PYTHONPATH=src python -m pytest tests/test_crawler.py -v
 
+# Run single test
+PYTHONPATH=src python -m pytest tests/test_agent.py::test_function_name -v
+
 # Integration test (requires DASHSCOPE_API_KEY or GEMINI_API_KEY)
 ./scripts/run_integration_test.sh
 ```
@@ -114,4 +117,9 @@ API_SECRET_KEY       # Bearer token for API authentication
 
 Railway deployment with GitHub Actions workflows:
 - `daily_pipeline.yml`: Runs daily at 00:00 UTC for 3 users (cs.AI, cs.LG, RL)
-- `e2e_smoke.yml`: Manual smoke test workflow
+- `e2e-smoke.yml`: Manual smoke test workflow with custom topic input
+
+## Notes
+
+- CLI modules use relative imports (`from ..crawler import ...`)
+- `instructor>=1.7.0` required for `from_provider()` support with Gemini

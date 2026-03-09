@@ -11,5 +11,6 @@ numpy>=1.26.2,<3
 tqdm>=4.66.0
 openai
 instructor>=1.7.0
+jsonref>=1.1.0  # required by instructor for Gemini provider
 # 可选：Gemini
 google-genai
