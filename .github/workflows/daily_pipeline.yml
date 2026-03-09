@@ -34,6 +34,15 @@ jobs:
       - name: Install dependencies
         run: pip install --no-cache-dir -r requirements.txt
 
+      - name: Check required secrets
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "::error::GEMINI_API_KEY secret is not set or empty. Add it in Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
       - name: Run crawler and agent
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -43,6 +52,21 @@ jobs:
             echo "Pipeline produced empty output"
             exit 1
           fi
+
+      - name: Health check API
+        env:
+          API_HOST: ${{ secrets.API_HOST }}
+        run: |
+          for i in 1 2 3 4 5; do
+            if curl -sf -o /dev/null "$API_HOST/health"; then
+              echo "API is up"
+              exit 0
+            fi
+            echo "Attempt $i/5: API not ready, retrying in 10s..."
+            sleep 10
+          done
+          echo "::error::API unhealthy or not reachable; check API_HOST and Railway."
+          exit 1
 
       - name: Ingest to Railway API
         env:
@@ -63,7 +87,17 @@ jobs:
           with open('payload.json', 'w') as f:
             json.dump(payload, f, ensure_ascii=False)
           "
-          curl -f -X POST "$API_HOST/api/v1/ingest" \
-            -H "Authorization: Bearer $API_SECRET_KEY" \
-            -H "Content-Type: application/json" \
-            -d @payload.json
+          for attempt in 1 2 3; do
+            curl -s -w "\n%{http_code}" -X POST "$API_HOST/api/v1/ingest" \
+              -H "Authorization: Bearer $API_SECRET_KEY" \
+              -H "Content-Type: application/json" \
+              -d @payload.json -o response.txt
+            code=$(tail -n1 response.txt)
+            body=$(sed '$d' response.txt)
+            if [ "$code" = "200" ]; then echo "Ingest succeeded"; exit 0; fi
+            echo "Attempt $attempt failed: HTTP $code"
+            echo "$body"
+            [ $attempt -lt 3 ] && echo "Retrying in 5s..." && sleep 5
+          done
+          echo "::error::Ingest failed after 3 attempts. Last HTTP $code"
+          exit 1

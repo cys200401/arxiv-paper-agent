@@ -94,7 +94,7 @@ export TURSO_AUTH_TOKEN="your-token"
 ### LLM Providers
 
 - **Qwen (DashScope)**: Default; requires `DASHSCOPE_API_KEY`
-- **Gemini**: Alternative; requires `GEMINI_API_KEY`
+- **Gemini**: Alternative; requires `GEMINI_API_KEY`. Use a key from [Google AI Studio](https://aistudio.google.com/apikey) or enable Generative Language API in Google Cloud. Invalid or empty key yields `API key not valid`.
 - Uses `instructor` library for structured output validation
 
 ### API Endpoints
