@@ -1,5 +1,5 @@
 # E2E Smoke: manual run with topic input. Crawler -> Agent -> Ingest -> Verify.
-# Secrets: GEMINI_API_KEY, API_HOST, API_SECRET_KEY
+# Secrets: DASHSCOPE_API_KEY, API_HOST, API_SECRET_KEY
 
 name: E2E Smoke
 
@@ -38,6 +38,15 @@ jobs:
           pip install -r requirements.txt
           pip install pytest requests
 
+      - name: Check required secrets
+        env:
+          DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+        run: |
+          if [ -z "$DASHSCOPE_API_KEY" ]; then
+            echo "::error::DASHSCOPE_API_KEY secret is not set or empty. Add it in Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
       - name: Run Crawler
         env:
           PYTHONPATH: .
@@ -49,11 +58,26 @@ jobs:
       - name: Run Agent
         env:
           PYTHONPATH: .
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
         run: |
-          python -m src.cli.agent --input papers.json --output report.json --interest "${{ github.event.inputs.topic }}" --model gemini-2.0-flash
+          python -m src.cli.agent --input papers.json --output report.json --interest "${{ github.event.inputs.topic }}" --model qwen-turbo
           echo "Agent output:"
           head -c 500 report.json
+
+      - name: Health check API
+        env:
+          API_HOST: ${{ secrets.API_HOST }}
+        run: |
+          for i in 1 2 3 4 5; do
+            if curl -sf -o /dev/null "$API_HOST/health"; then
+              echo "API is up"
+              exit 0
+            fi
+            echo "Attempt $i/5: API not ready, retrying in 10s..."
+            sleep 10
+          done
+          echo "::error::API unhealthy or not reachable; check API_HOST and Railway."
+          exit 1
 
       - name: Ingest to API
         env:
@@ -75,10 +99,20 @@ jobs:
             json.dump(payload, f, ensure_ascii=False)
           "
           echo "Ingesting to $API_HOST"
-          curl -f -X POST "$API_HOST/api/v1/ingest" \
-            -H "Authorization: Bearer $API_SECRET_KEY" \
-            -H "Content-Type: application/json" \
-            -d @payload.json
+          for attempt in 1 2 3; do
+            curl -s -w "\n%{http_code}" -X POST "$API_HOST/api/v1/ingest" \
+              -H "Authorization: Bearer $API_SECRET_KEY" \
+              -H "Content-Type: application/json" \
+              -d @payload.json -o response.txt
+            code=$(tail -n1 response.txt)
+            body=$(sed '$d' response.txt)
+            if [ "$code" = "200" ]; then echo "Ingest succeeded"; exit 0; fi
+            echo "Attempt $attempt failed: HTTP $code"
+            echo "$body"
+            [ $attempt -lt 3 ] && echo "Retrying in 5s..." && sleep 5
+          done
+          echo "::error::Ingest failed after 3 attempts. Last HTTP $code"
+          exit 1
 
       - name: Verify Data
         env:
