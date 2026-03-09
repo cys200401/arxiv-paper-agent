@@ -249,6 +249,10 @@ async def ingest(body: IngestBody):
         raise HTTPException(status_code=503, detail="Database not available")
     try:
         await asyncio.to_thread(_insert_report, db, body.user_id, body.theme, body.report_data)
+    except sqlite3.IntegrityError as e:
+        if "FOREIGN KEY constraint failed" in str(e):
+            raise HTTPException(status_code=409, detail=f"Unknown user_id: {body.user_id}") from e
+        raise HTTPException(status_code=409, detail="Database constraint violation") from e
     except Exception:
         raise HTTPException(status_code=503, detail="Database not available")
     return {"ok": True, "user_id": body.user_id, "theme": body.theme}

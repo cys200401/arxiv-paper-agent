@@ -95,6 +95,36 @@ def test_ingest_accepts_valid_payload_with_auth(client):
     assert data.get("theme") == "cat:cs.AI"
 
 
+def test_ingest_accepts_smoke_test_user(client):
+    with patch.dict(os.environ, {"API_SECRET_KEY": "test-secret-key"}, clear=False):
+        resp = client.post(
+            "/api/v1/ingest",
+            json={
+                "user_id": "smoke_test",
+                "theme": "machine learning",
+                "report_data": {"date": "2024-01-01", "theme": "machine learning", "top_papers": []},
+            },
+            headers={"Authorization": "Bearer test-secret-key"},
+        )
+    assert resp.status_code == 200
+    assert resp.json()["user_id"] == "smoke_test"
+
+
+def test_ingest_rejects_unknown_user_with_clear_error(client):
+    with patch.dict(os.environ, {"API_SECRET_KEY": "test-secret-key"}, clear=False):
+        resp = client.post(
+            "/api/v1/ingest",
+            json={
+                "user_id": "missing_user",
+                "theme": "cat:cs.AI",
+                "report_data": {"date": "2024-01-01", "theme": "cat:cs.AI", "top_papers": []},
+            },
+            headers={"Authorization": "Bearer test-secret-key"},
+        )
+    assert resp.status_code == 409
+    assert resp.json() == {"detail": "Unknown user_id: missing_user"}
+
+
 def test_health_reports_sqlite_backend(client):
     resp = client.get("/health")
     assert resp.status_code == 200
