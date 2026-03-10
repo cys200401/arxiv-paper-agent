@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>每日论文速递</title>
+    <style>
+      :root {
+        --bg: #f3f7f8;
+        --bg-accent: #d9f0ef;
+        --panel: rgba(255, 255, 255, 0.82);
+        --panel-strong: rgba(255, 255, 255, 0.94);
+        --line: rgba(15, 34, 44, 0.1);
+        --line-strong: rgba(15, 34, 44, 0.16);
+        --text: #10212c;
+        --muted: #58707d;
+        --accent: #0f8b8d;
+        --accent-deep: #0b5d60;
+        --shadow: 0 24px 60px rgba(15, 34, 44, 0.1);
+        --radius-xl: 28px;
+        --radius-lg: 20px;
+        --radius-md: 14px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        color-scheme: light;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Avenir Next", "IBM Plex Sans", "PingFang SC", "Noto Sans SC",
+          "Segoe UI", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top left, rgba(15, 139, 141, 0.18), transparent 30%),
+          radial-gradient(circle at top right, rgba(52, 110, 140, 0.15), transparent 24%),
+          linear-gradient(160deg, var(--bg) 0%, #eef4f5 36%, #f7faf9 100%);
+      }
+
+      body::before,
+      body::after {
+        content: "";
+        position: fixed;
+        inset: auto;
+        width: 22rem;
+        height: 22rem;
+        border-radius: 999px;
+        filter: blur(80px);
+        pointer-events: none;
+        opacity: 0.35;
+      }
+
+      body::before {
+        top: -8rem;
+        right: -6rem;
+        background: rgba(15, 139, 141, 0.18);
+      }
+
+      body::after {
+        bottom: -10rem;
+        left: -8rem;
+        background: rgba(29, 78, 137, 0.12);
+      }
+
+      .shell {
+        width: min(1180px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 28px 0 56px;
+      }
+
+      .status-bar {
+        position: sticky;
+        top: 16px;
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 20px;
+        padding: 14px 18px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.75);
+        backdrop-filter: blur(24px);
+        box-shadow: 0 12px 30px rgba(15, 34, 44, 0.08);
+      }
+
+      .status-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.92rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+      }
+
+      .status-chip::before {
+        content: "";
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: currentColor;
+        box-shadow: 0 0 0 6px rgba(15, 139, 141, 0.12);
+      }
+
+      .status-chip[data-tone="loading"] {
+        color: var(--accent);
+      }
+
+      .status-chip[data-tone="success"] {
+        color: #0d7a4d;
+      }
+
+      .status-chip[data-tone="error"] {
+        color: #ba3a3a;
+      }
+
+      .status-meta {
+        font-size: 0.82rem;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+
+      .hero,
+      .settings,
+      .empty-state,
+      .paper-card {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        backdrop-filter: blur(18px);
+        box-shadow: var(--shadow);
+      }
+
+      .hero {
+        position: relative;
+        overflow: hidden;
+        border-radius: var(--radius-xl);
+        padding: 28px;
+        margin-bottom: 20px;
+      }
+
+      .hero::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(120deg, rgba(15, 139, 141, 0.08), transparent 36%),
+          linear-gradient(0deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0));
+        pointer-events: none;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(15, 139, 141, 0.18);
+        background: rgba(15, 139, 141, 0.08);
+        color: var(--accent-deep);
+        font-size: 0.82rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .hero-grid {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: minmax(0, 1.8fr) minmax(280px, 0.95fr);
+        gap: 24px;
+        margin-top: 18px;
+      }
+
+      .hero h1 {
+        margin: 0;
+        font-size: clamp(2.2rem, 4vw, 3.7rem);
+        line-height: 0.98;
+        letter-spacing: -0.05em;
+        font-weight: 700;
+      }
+
+      .hero p {
+        margin: 16px 0 0;
+        max-width: 58ch;
+        color: var(--muted);
+        font-size: 1rem;
+        line-height: 1.72;
+      }
+
+      .summary-panel {
+        padding: 18px;
+        border-radius: var(--radius-lg);
+        background: var(--panel-strong);
+        border: 1px solid var(--line);
+      }
+
+      .summary-label {
+        margin: 0 0 16px;
+        color: var(--muted);
+        font-size: 0.84rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .stat {
+        padding: 14px;
+        border-radius: var(--radius-md);
+        background: rgba(244, 249, 249, 0.88);
+        border: 1px solid rgba(15, 34, 44, 0.08);
+      }
+
+      .stat-label {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+
+      .stat-value {
+        font-size: 1.04rem;
+        font-weight: 700;
+        line-height: 1.35;
+      }
+
+      .settings {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        border-radius: var(--radius-xl);
+        padding: 18px;
+        margin-bottom: 20px;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .field label {
+        font-size: 0.8rem;
+        color: var(--muted);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .field input {
+        width: 100%;
+        min-height: 48px;
+        padding: 0 14px;
+        border: 1px solid var(--line-strong);
+        border-radius: var(--radius-md);
+        background: rgba(255, 255, 255, 0.92);
+        color: var(--text);
+        font: inherit;
+        outline: none;
+        transition: border-color 120ms ease, box-shadow 120ms ease;
+      }
+
+      .field input:focus {
+        border-color: rgba(15, 139, 141, 0.58);
+        box-shadow: 0 0 0 4px rgba(15, 139, 141, 0.12);
+      }
+
+      .settings-actions {
+        display: flex;
+        align-items: end;
+      }
+
+      button {
+        min-height: 48px;
+        width: 100%;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-deep) 100%);
+        color: #f7fbfb;
+        font: inherit;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        box-shadow: 0 14px 30px rgba(11, 93, 96, 0.24);
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+      }
+
+      .stack {
+        display: grid;
+        gap: 18px;
+      }
+
+      .papers {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 18px;
+      }
+
+      .paper-card {
+        position: relative;
+        overflow: hidden;
+        border-radius: var(--radius-xl);
+        padding: 22px;
+      }
+
+      .paper-card::before {
+        content: "";
+        position: absolute;
+        inset: 0 auto auto 0;
+        width: 100%;
+        height: 4px;
+        background: linear-gradient(90deg, var(--accent), rgba(15, 139, 141, 0));
+        opacity: 0.8;
+      }
+
+      .paper-index {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: rgba(15, 139, 141, 0.1);
+        color: var(--accent-deep);
+        font-weight: 700;
+      }
+
+      .paper-card h2 {
+        margin: 18px 0 12px;
+        font-size: 1.18rem;
+        line-height: 1.45;
+        letter-spacing: -0.03em;
+      }
+
+      .section-label {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--muted);
+        font-size: 0.78rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .paper-copy,
+      .paper-reason {
+        margin: 0;
+        line-height: 1.75;
+      }
+
+      .paper-copy {
+        color: var(--text);
+      }
+
+      .paper-reason {
+        color: var(--accent-deep);
+        font-weight: 600;
+      }
+
+      .tag-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 16px;
+      }
+
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        padding: 7px 11px;
+        border-radius: 999px;
+        background: rgba(15, 139, 141, 0.08);
+        color: var(--accent-deep);
+        font-size: 0.82rem;
+        font-weight: 600;
+      }
+
+      .empty-state {
+        border-radius: var(--radius-xl);
+        padding: 24px;
+      }
+
+      .empty-state h2 {
+        margin: 0 0 10px;
+        font-size: 1.28rem;
+      }
+
+      .empty-state p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .footnote {
+        margin-top: 18px;
+        color: var(--muted);
+        font-size: 0.86rem;
+        line-height: 1.7;
+      }
+
+      @media (max-width: 960px) {
+        .hero-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .settings {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .shell {
+          width: min(100vw - 20px, 100%);
+          padding-top: 16px;
+        }
+
+        .status-bar {
+          top: 8px;
+          border-radius: 20px;
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .hero,
+        .settings,
+        .paper-card,
+        .empty-state {
+          border-radius: 22px;
+        }
+
+        .settings {
+          grid-template-columns: 1fr;
+        }
+
+        .stats {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="status-bar">
+        <div class="status-chip" id="status-chip" data-tone="loading">加载中，正在获取最新日报…</div>
+        <div class="status-meta" id="status-meta">等待请求后端接口</div>
+      </section>
+
+      <section class="hero">
+        <span class="eyebrow">Daily Research Pulse</span>
+        <div class="hero-grid">
+          <div>
+            <h1>每日论文速递</h1>
+            <p id="hero-description">
+              汇集当天最值得读的论文摘要、中文翻译与推荐理由，适合晨间浏览、午间快速筛选和晚间沉浸式补课。
+            </p>
+          </div>
+          <aside class="summary-panel">
+            <p class="summary-label">Report Snapshot</p>
+            <div class="stats">
+              <div class="stat">
+                <span class="stat-label">日期</span>
+                <span class="stat-value" id="report-date">--</span>
+              </div>
+              <div class="stat">
+                <span class="stat-label">主题</span>
+                <span class="stat-value" id="report-theme">--</span>
+              </div>
+              <div class="stat">
+                <span class="stat-label">论文数量</span>
+                <span class="stat-value" id="paper-count">--</span>
+              </div>
+              <div class="stat">
+                <span class="stat-label">读者</span>
+                <span class="stat-value" id="report-user">--</span>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="settings">
+        <div class="field">
+          <label for="api-base">API Base</label>
+          <input id="api-base" type="text" placeholder="默认使用当前站点" />
+        </div>
+        <div class="field">
+          <label for="user-id">User ID</label>
+          <input id="user-id" type="text" placeholder="例如 user_1" />
+        </div>
+        <div class="field">
+          <label for="api-token">API Token</label>
+          <input id="api-token" type="password" placeholder="输入 API_SECRET_KEY" />
+        </div>
+        <div class="settings-actions">
+          <button id="refresh-button" type="button">刷新日报</button>
+        </div>
+      </section>
+
+      <section class="stack">
+        <section class="papers" id="papers"></section>
+        <section class="empty-state" id="empty-state" hidden>
+          <h2>还没有可展示的日报</h2>
+          <p id="empty-message">
+            请确认 API 地址、User ID 和 API Token 都正确，或者先让后端生成一份日报数据。
+          </p>
+        </section>
+      </section>
+
+      <p class="footnote" id="footnote">
+        页面会优先读取 URL 中的 `api`、`user_id`、`token` 参数，再回落到浏览器本地缓存。首次带参数访问后，页面会自动记住配置。
+      </p>
+    </main>
+
+    <script>
+      const storageKeys = {
+        apiBase: "dailyDigestApiBase",
+        userId: "dailyDigestUserId",
+        token: "dailyDigestToken",
+      };
+
+      const elements = {
+        statusChip: document.getElementById("status-chip"),
+        statusMeta: document.getElementById("status-meta"),
+        reportDate: document.getElementById("report-date"),
+        reportTheme: document.getElementById("report-theme"),
+        paperCount: document.getElementById("paper-count"),
+        reportUser: document.getElementById("report-user"),
+        heroDescription: document.getElementById("hero-description"),
+        papers: document.getElementById("papers"),
+        emptyState: document.getElementById("empty-state"),
+        emptyMessage: document.getElementById("empty-message"),
+        footnote: document.getElementById("footnote"),
+        apiBaseInput: document.getElementById("api-base"),
+        userIdInput: document.getElementById("user-id"),
+        tokenInput: document.getElementById("api-token"),
+        refreshButton: document.getElementById("refresh-button"),
+      };
+
+      function readParams() {
+        const params = new URLSearchParams(window.location.search);
+        const persistedToken = window.localStorage.getItem(storageKeys.token) || "";
+        const persistedUserId = window.localStorage.getItem(storageKeys.userId) || "user_1";
+        const persistedApiBase = window.localStorage.getItem(storageKeys.apiBase) || window.location.origin;
+
+        const config = {
+          apiBase: params.get("api") || persistedApiBase || window.location.origin,
+          userId: params.get("user_id") || persistedUserId,
+          token: params.get("token") || persistedToken,
+        };
+
+        window.localStorage.setItem(storageKeys.apiBase, config.apiBase);
+        window.localStorage.setItem(storageKeys.userId, config.userId);
+        if (config.token) {
+          window.localStorage.setItem(storageKeys.token, config.token);
+        }
+
+        if (params.has("token")) {
+          params.delete("token");
+          const nextUrl = params.toString()
+            ? `${window.location.pathname}?${params.toString()}`
+            : window.location.pathname;
+          window.history.replaceState({}, "", nextUrl);
+        }
+
+        return config;
+      }
+
+      function setStatus(message, tone = "loading", meta = "") {
+        elements.statusChip.textContent = message;
+        elements.statusChip.dataset.tone = tone;
+        elements.statusMeta.textContent = meta;
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+
+      function normalizeContent(rawResponse) {
+        const latestReport = rawResponse.reports?.[0];
+        if (!latestReport) {
+          throw new Error("当前用户还没有日报记录。");
+        }
+
+        let content = latestReport.content_json;
+        if (typeof content === "string") {
+          content = JSON.parse(content);
+        }
+
+        const papers = Array.isArray(content.top_papers) ? content.top_papers : [];
+        return {
+          userId: latestReport.user_id || rawResponse.user_id,
+          date: content.date || latestReport.report_date || "--",
+          theme: content.theme || latestReport.theme || "未命名主题",
+          papers: papers.map((paper, index) => ({
+            index: index + 1,
+            title: paper.title || "未命名论文",
+            translation: paper.cn_translation || paper.original_summary || "暂无摘要翻译。",
+            reason: paper.recommend_reason || "暂无推荐理由。",
+            tags: Array.isArray(paper.tech_tags) ? paper.tech_tags : [],
+          })),
+        };
+      }
+
+      function renderCards(report) {
+        elements.emptyState.hidden = true;
+        elements.papers.innerHTML = report.papers
+          .map((paper) => {
+            const tags = paper.tags.length
+              ? `<div class="tag-row">${paper.tags
+                  .map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`)
+                  .join("")}</div>`
+              : "";
+
+            return `
+              <article class="paper-card">
+                <span class="paper-index">${paper.index}</span>
+                <h2>${escapeHtml(paper.title)}</h2>
+                <section>
+                  <span class="section-label">中文摘要</span>
+                  <p class="paper-copy">${escapeHtml(paper.translation)}</p>
+                </section>
+                <section style="margin-top: 18px;">
+                  <span class="section-label">推荐理由</span>
+                  <p class="paper-reason">${escapeHtml(paper.reason)}</p>
+                </section>
+                ${tags}
+              </article>
+            `;
+          })
+          .join("");
+      }
+
+      function renderEmpty(message) {
+        elements.papers.innerHTML = "";
+        elements.emptyMessage.textContent = message;
+        elements.emptyState.hidden = false;
+      }
+
+      async function fetchDigest() {
+        const apiBase = (elements.apiBaseInput.value || window.location.origin).trim().replace(/\/$/, "");
+        const userId = (elements.userIdInput.value || "user_1").trim();
+        const token = elements.tokenInput.value.trim();
+
+        window.localStorage.setItem(storageKeys.apiBase, apiBase);
+        window.localStorage.setItem(storageKeys.userId, userId);
+        if (token) {
+          window.localStorage.setItem(storageKeys.token, token);
+        }
+
+        if (!token) {
+          setStatus("等待认证信息", "error", "请输入 API Token 后再刷新。");
+          renderEmpty("缺少 API Token。请先输入 API_SECRET_KEY，页面会自动保存到浏览器本地。");
+          return;
+        }
+
+        if (!userId) {
+          setStatus("缺少用户信息", "error", "请输入一个有效的 User ID。");
+          renderEmpty("当前没有可请求的 user_id。");
+          return;
+        }
+
+        setStatus("加载中，正在获取最新日报…", "loading", `请求 ${userId} 的最近一份日报`);
+
+        try {
+          const response = await fetch(
+            `${apiBase}/api/v1/reports?user_id=${encodeURIComponent(userId)}&limit=1`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          let payload = null;
+          try {
+            payload = await response.json();
+          } catch (error) {
+            payload = null;
+          }
+
+          if (!response.ok) {
+            const detail = payload?.detail || `请求失败，HTTP ${response.status}`;
+            throw new Error(detail);
+          }
+
+          const report = normalizeContent(payload);
+          elements.reportDate.textContent = report.date;
+          elements.reportTheme.textContent = report.theme;
+          elements.paperCount.textContent = `${report.papers.length} 篇`;
+          elements.reportUser.textContent = report.userId;
+          elements.heroDescription.textContent = `围绕「${report.theme}」精选 ${report.papers.length} 篇论文，用更适合中文读者的节奏呈现重点摘要、推荐理由与技术标签。`;
+          elements.footnote.textContent = `数据来源：${apiBase}/api/v1/reports · 最近同步用户：${report.userId}`;
+
+          if (!report.papers.length) {
+            renderEmpty("日报已经生成，但当前 `top_papers` 为空。可以稍后再试，或者检查 Agent 的输出。");
+          } else {
+            renderCards(report);
+          }
+
+          setStatus("已同步最新日报", "success", `主题：${report.theme} · 日期：${report.date}`);
+        } catch (error) {
+          renderEmpty(error.message || "获取日报失败，请稍后重试。");
+          setStatus("加载失败", "error", error.message || "后端请求失败");
+        }
+      }
+
+      function boot() {
+        const config = readParams();
+        elements.apiBaseInput.value = config.apiBase === "null" ? window.location.origin : config.apiBase;
+        elements.userIdInput.value = config.userId;
+        elements.tokenInput.value = config.token;
+        elements.refreshButton.addEventListener("click", fetchDigest);
+        fetchDigest();
+      }
+
+      boot();
+    </script>
+  </body>
+</html>

@@ -132,3 +132,10 @@ def test_health_reports_sqlite_backend(client):
     assert data["status"] == "ok"
     assert data["backend"] == "sqlite"
     assert data["path"].endswith("test_api.db")
+
+
+def test_daily_digest_page_serves_html(client):
+    resp = client.get("/daily-digest")
+    assert resp.status_code == 200
+    assert "text/html" in resp.headers["content-type"]
+    assert "每日论文速递" in resp.text

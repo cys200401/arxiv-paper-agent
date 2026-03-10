@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -26,6 +27,7 @@ logger = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_SQLITE_DATABASE_PATH = Path.home() / "Downloads" / "arxiv_data" / "papers.db"
 DEFAULT_SCHEMA_PATH = REPO_ROOT / "schema.sql"
+DAILY_DIGEST_PAGE_PATH = REPO_ROOT / "docs" / "daily_digest.html"
 
 # ---------------------------------------------------------------------------
 # Config & connection factory
@@ -213,6 +215,13 @@ app = FastAPI(
     title="Arxiv Data Engine API",
     lifespan=lifespan,
 )
+
+
+@app.get("/daily-digest", include_in_schema=False)
+async def daily_digest_page():
+    if not DAILY_DIGEST_PAGE_PATH.exists():
+        raise HTTPException(status_code=404, detail="Daily digest page not found")
+    return FileResponse(DAILY_DIGEST_PAGE_PATH)
 
 
 @app.get("/health")
